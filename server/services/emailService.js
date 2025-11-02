@@ -17,7 +17,7 @@ const createTransporter = () => {
     return null;
   }
 
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: parseInt(process.env.EMAIL_PORT) || 587,
     secure: process.env.EMAIL_PORT === '465', // true for 465, false for other ports
@@ -55,7 +55,8 @@ const sendEmail = async (options) => {
     return { success: true, messageId: info.messageId };
 
   } catch (error) {
-    console.error('❌ Email sending error:', error);
+    console.warn('⚠️  Email not sent (configuration issue):', error.message);
+    console.log('💡 Configure EMAIL_USER, EMAIL_PASSWORD in .env to enable emails');
     return { success: false, error: error.message };
   }
 };
