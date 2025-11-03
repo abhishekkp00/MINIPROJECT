@@ -6,6 +6,7 @@
 
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -178,6 +179,46 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
   } catch (error) {
     throw new Error('Password comparison failed');
+  }
+};
+
+// Method to generate JWT authentication token
+userSchema.methods.generateAuthToken = function() {
+  try {
+    const payload = {
+      id: this._id,
+      email: this.email,
+      role: this.role
+    };
+    
+    const token = jwt.sign(
+      payload,
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    );
+    
+    return token;
+  } catch (error) {
+    throw new Error('Token generation failed');
+  }
+};
+
+// Method to generate refresh token
+userSchema.methods.generateRefreshToken = function() {
+  try {
+    const payload = {
+      id: this._id
+    };
+    
+    const refreshToken = jwt.sign(
+      payload,
+      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRE || '30d' }
+    );
+    
+    return refreshToken;
+  } catch (error) {
+    throw new Error('Refresh token generation failed');
   }
 };
 

@@ -16,6 +16,10 @@ import connectDB from './config/db.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import authRoutes from './routes/auth.js';
 
+// Import models to register them with Mongoose
+import './models/User.js';
+import './models/Project.js';
+
 // Load environment variables
 dotenv.config();
 

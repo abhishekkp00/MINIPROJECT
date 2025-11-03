@@ -1,0 +1,574 @@
+{
+  "info": {
+    "name": "AI Project Management - Authentication",
+    "description": "Complete authentication API endpoints for user registration, login, and profile management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Register User",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    const jsonData = pm.response.json();",
+              "    pm.collectionVariables.set('token', jsonData.data.token);",
+              "    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+              "    pm.environment.set('token', jsonData.data.token);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"student\",\n  \"department\": \"Computer Science\",\n  \"rollNumber\": \"CS2021001\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "register"]
+        },
+        "description": "Register a new user with email, password, name, and optional role. Returns JWT tokens."
+      },
+      "response": []
+    },
+    {
+      "name": "Register - Student",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Alice Student\",\n  \"email\": \"alice.student@example.com\",\n  \"password\": \"securePass123\",\n  \"role\": \"student\",\n  \"department\": \"Computer Science\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "register"]
+        },
+        "description": "Register a student user"
+      },
+      "response": []
+    },
+    {
+      "name": "Register - Team Lead",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Bob Team Lead\",\n  \"email\": \"bob.lead@example.com\",\n  \"password\": \"securePass123\",\n  \"role\": \"team-lead\",\n  \"department\": \"Engineering\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "register"]
+        },
+        "description": "Register a team lead user"
+      },
+      "response": []
+    },
+    {
+      "name": "Register - Mentor",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Dr. Carol Mentor\",\n  \"email\": \"carol.mentor@example.com\",\n  \"password\": \"securePass123\",\n  \"role\": \"mentor\",\n  \"department\": \"Computer Science\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "register"]
+        },
+        "description": "Register a mentor user"
+      },
+      "response": []
+    },
+    {
+      "name": "Register - Duplicate Email (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Another User\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "register"]
+        },
+        "description": "Test duplicate email validation - should return 400 error"
+      },
+      "response": []
+    },
+    {
+      "name": "Register - Invalid Email (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Invalid Email User\",\n  \"email\": \"notanemail\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "register"]
+        },
+        "description": "Test invalid email format - should return validation error"
+      },
+      "response": []
+    },
+    {
+      "name": "Register - Short Password (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Short Password User\",\n  \"email\": \"shortpass@example.com\",\n  \"password\": \"12345\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "register"]
+        },
+        "description": "Test password too short - should return validation error"
+      },
+      "response": []
+    },
+    {
+      "name": "Register - Empty Name (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"\",\n  \"email\": \"emptyname@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "register"]
+        },
+        "description": "Test empty name - should return validation error"
+      },
+      "response": []
+    },
+    {
+      "name": "Login User",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const jsonData = pm.response.json();",
+              "    pm.collectionVariables.set('token', jsonData.data.token);",
+              "    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+              "    pm.environment.set('token', jsonData.data.token);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        },
+        "description": "Login with email and password. Returns JWT tokens."
+      },
+      "response": []
+    },
+    {
+      "name": "Login - Wrong Password (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"wrongpassword\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        },
+        "description": "Test login with wrong password. Should return 'Invalid login credentials' error."
+      },
+      "response": []
+    },
+    {
+      "name": "Login - Non-existent Email (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"nonexistent@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        },
+        "description": "Test login with non-existent email. Should return 'Invalid login credentials' error."
+      },
+      "response": []
+    },
+    {
+      "name": "Login - Missing Password (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"testuser@example.com\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        },
+        "description": "Test login without password. Should return validation error."
+      },
+      "response": []
+    },
+    {
+      "name": "Login - Invalid Email Format (Should Fail)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"notanemail\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        },
+        "description": "Test login with invalid email format. Should return 'Invalid login credentials' error."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Current User",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has success flag', function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});",
+              "",
+              "pm.test('Response contains user data', function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.user).to.exist;",
+              "    pm.expect(jsonData.user._id).to.exist;",
+              "    pm.expect(jsonData.user.email).to.exist;",
+              "    pm.expect(jsonData.user.name).to.exist;",
+              "});",
+              "",
+              "pm.test('Password is not included in response', function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.user.password).to.not.exist;",
+              "    pm.expect(jsonData.user.refreshToken).to.not.exist;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "me"]
+        },
+        "description": "Get currently authenticated user profile. Requires authentication token."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Current User - No Token (Should Fail)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "me"]
+        },
+        "description": "Test /me endpoint without authorization token. Should return 401 error."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Current User - Invalid Token (Should Fail)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer invalid_token_here",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "me"]
+        },
+        "description": "Test /me endpoint with invalid token. Should return 401 error."
+      },
+      "response": []
+    },
+    {
+      "name": "Update Profile",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"John Doe Updated\",\n  \"bio\": \"Full-stack developer passionate about AI\",\n  \"skills\": [\"JavaScript\", \"React\", \"Node.js\", \"MongoDB\"],\n  \"department\": \"Computer Science\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/profile",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "profile"]
+        },
+        "description": "Update user profile information. Requires authentication."
+      },
+      "response": []
+    },
+    {
+      "name": "Change Password",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"currentPassword\": \"password123\",\n  \"newPassword\": \"newSecurePassword456\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/password",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "password"]
+        },
+        "description": "Change user password. Requires current password and new password. Requires authentication."
+      },
+      "response": []
+    },
+    {
+      "name": "Refresh Token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const jsonData = pm.response.json();",
+              "    pm.collectionVariables.set('token', jsonData.data.token);",
+              "    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+              "    pm.environment.set('token', jsonData.data.token);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/refresh",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "refresh"]
+        },
+        "description": "Refresh access token using refresh token. Returns new tokens."
+      },
+      "response": []
+    },
+    {
+      "name": "Logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/logout",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "logout"]
+        },
+        "description": "Logout user and invalidate refresh token. Requires authentication."
+      },
+      "response": []
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/api/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "health"]
+        },
+        "description": "Check if the API server is running"
+      },
+      "response": []
+    }
+  ]
+}

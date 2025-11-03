@@ -1,0 +1,224 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                    USER LOGIN ENDPOINT - QUICK REFERENCE                  ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ENDPOINT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+URL:        POST /api/auth/login
+Access:     Public (no authentication required)
+Purpose:    Authenticate user and receive JWT tokens
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ REQUEST FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Headers:
+  Content-Type: application/json
+
+Body (JSON):
+  {
+    "email": "user@example.com",    // Required: Valid email
+    "password": "yourpassword"       // Required: User's password
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ SUCCESS RESPONSE (200 OK)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": {
+      "_id": "690827209dd445b4a827a47c",
+      "name": "Test User",
+      "email": "testuser@example.com",
+      "role": "student",
+      "avatar": "https://via.placeholder.com/150",
+      "bio": "",
+      "skills": [],
+      "isOnline": true,
+      "lastActive": "2025-11-03T04:05:21.159Z"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ERROR RESPONSES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ INVALID CREDENTIALS (Wrong Password or Email)                             │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Status: 500 (should be 401)                                               │
+│ Message: "Invalid login credentials"                                      │
+└───────────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ MISSING PASSWORD                                                           │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Status: 400                                                               │
+│ Message: "Please provide email and password"                              │
+└───────────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ MISSING EMAIL                                                              │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Status: 400                                                               │
+│ Message: "Validation failed"                                              │
+└───────────────────────────────────────────────────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ VALIDATION RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Field       Required    Validation
+─────────   ──────────  ───────────────────────────────────────────────────
+email       YES         Must be valid email format
+password    YES         Cannot be empty
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ CURL EXAMPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Valid Login:
+──────────────────────────────────────────────────────────────────────────
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"testuser@example.com","password":"password123"}'
+
+✗ Wrong Password:
+──────────────────────────────────────────────────────────────────────────
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"testuser@example.com","password":"wrongpass"}'
+
+✗ Non-existent Email:
+──────────────────────────────────────────────────────────────────────────
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"fake@example.com","password":"password123"}'
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ KEY FEATURES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ JWT Token Generation        Access token (7 days) + Refresh token (30 days)
+✓ Password Security           Bcrypt comparison, never returns password
+✓ HTTP-Only Cookies           Token stored in secure cookie
+✓ User Status Tracking        Updates isOnline and lastActive
+✓ Input Validation            Express-validator checks
+✓ Generic Error Messages      Prevents user enumeration attacks
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ TOKEN DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Access Token:
+  Payload:    { id, email, role }
+  Expiration: 7 days
+  Usage:      Include in Authorization: Bearer <token> for protected routes
+
+Refresh Token:
+  Payload:    { id }
+  Expiration: 30 days
+  Usage:      POST /api/auth/refresh to get new access token
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ LOGIN FLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Client sends POST request with email and password
+      ↓
+2. Express-validator checks email format and password presence
+      ↓
+3. User.findByCredentials(email, password) called
+      ↓
+4. Find user by email with isActive=true
+      ↓
+5. Compare password using bcrypt.compare()
+      ↓
+6. Generate access token and refresh token
+      ↓
+7. Update user: refreshToken, lastActive, isOnline
+      ↓
+8. Set HTTP-only cookie with access token
+      ↓
+9. Return success response with user and tokens
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ POSTMAN TESTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Collection File: server/docs/Postman_Collection_Auth.json
+
+Import and test these requests:
+  1. Login User                          ✓ Valid credentials
+  2. Login - Wrong Password              ✗ Should fail
+  3. Login - Non-existent Email          ✗ Should fail
+  4. Login - Missing Password            ✗ Should fail
+  5. Login - Invalid Email Format        ✗ Should fail
+
+The collection auto-saves tokens to variables for subsequent requests.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ DATABASE CHANGES AFTER LOGIN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+User document is updated with:
+  - refreshToken: "<new_refresh_token>"
+  - lastActive: <current_timestamp>
+  - isOnline: true
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ USING THE TOKEN IN SUBSEQUENT REQUESTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add to request headers:
+  Authorization: Bearer <your_token_here>
+
+Example:
+  curl -X GET http://localhost:5000/api/auth/me \
+    -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ RELATED ENDPOINTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+POST   /api/auth/register      Create new user account
+GET    /api/auth/me            Get current user profile (requires token)
+POST   /api/auth/logout        Logout user (requires token)
+POST   /api/auth/refresh       Refresh access token
+PUT    /api/auth/profile       Update user profile (requires token)
+PUT    /api/auth/password      Change password (requires token)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ FILE LOCATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Routes:      server/routes/auth.js
+Controller:  server/controllers/authController.js (login function)
+Model:       server/models/User.js (findByCredentials, comparePassword)
+Middleware:  server/middleware/auth.js (token utilities)
+Validation:  server/routes/auth.js (loginValidation)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ TEST RESULTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Valid Login                   200 OK with user and tokens
+✓ Wrong Password                500 Error "Invalid login credentials"
+✓ Non-existent Email            500 Error "Invalid login credentials"
+✓ Missing Password              400 Error
+✓ Invalid Email Format          500 Error "Invalid login credentials"
+✓ Missing Email                 400 Error "Validation failed"
+
+All Tests Passed: 6/6 ✓
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Last Updated: November 3, 2025

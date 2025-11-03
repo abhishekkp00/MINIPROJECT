@@ -3,6 +3,7 @@
  * Handles user registration, login, OAuth, and token management
  */
 
+import { validationResult } from 'express-validator';
 import User from '../models/User.js';
 import { generateToken, generateRefreshToken, setTokenCookie } from '../middleware/auth.js';
 import { catchAsync, AppError } from '../middleware/errorHandler.js';
@@ -14,6 +15,12 @@ import { sendWelcomeEmail } from '../services/emailService.js';
  * @access  Public
  */
 export const register = catchAsync(async (req, res, next) => {
+  // Validate request
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(new AppError('Validation failed', 400, errors.array()));
+  }
+
   const { name, email, password, role, department, rollNumber } = req.body;
 
   // Check if user already exists
@@ -65,12 +72,13 @@ export const register = catchAsync(async (req, res, next) => {
  * @access  Public
  */
 export const login = catchAsync(async (req, res, next) => {
-  const { email, password } = req.body;
-
-  // Validate input
-  if (!email || !password) {
-    return next(new AppError('Please provide email and password', 400));
+  // Validate request
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(new AppError('Validation failed', 400, errors.array()));
   }
+
+  const { email, password } = req.body;
 
   // Find user and include password
   const user = await User.findByCredentials(email, password);
@@ -105,17 +113,18 @@ export const login = catchAsync(async (req, res, next) => {
  * @access  Private
  */
 export const getMe = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.user._id)
-    .populate('projects', 'title status progress deadline')
-    .populate('mentoringProjects', 'title status progress');
+  // Find user by ID from the authenticated request
+  const user = await User.findById(req.user._id);
 
+  // Handle case where user is deleted but token is still valid
   if (!user) {
-    return next(new AppError('User not found', 404));
+    return next(new AppError('User not found. Please login again.', 404));
   }
 
+  // Return user profile (password is already excluded by schema)
   res.status(200).json({
     success: true,
-    data: { user }
+    user: user.getPublicProfile()
   });
 });
 
