@@ -1,74 +1,496 @@
 /**
- * AI Service
- * Integration with Google Gemini API for intelligent project analysis and suggestions
+ * AI Service using Google Gemini API
+ * Provides AI-powered insights for project management
+ * Enhanced version with caching, cost tracking, and comprehensive error handling
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import NodeCache from 'node-cache';
+
+// Initialize cache (TTL: 1 hour, check period: 2 minutes)
+const cache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
+
+// Track API usage and costs
+let apiCallCount = 0;
+let totalTokensUsed = 0;
 
 // Initialize Gemini client
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-pro' });
+let genAI = null;
+let model = null;
 
 /**
- * Analyze project chat messages to extract insights
- * @param {Array} messages - Array of chat messages
- * @param {Object} projectInfo - Project information
- * @returns {Promise<Object>} Analysis results
+ * Initialize the Gemini AI client
  */
-export const analyzeChatMessages = async (messages, projectInfo) => {
+const initializeGemini = () => {
   try {
-    // Prepare message context
-    const chatContext = messages
-      .slice(-50) // Last 50 messages
-      .map(m => `${m.sender?.name || 'User'}: ${m.message}`)
-      .join('\n');
+    const apiKey = process.env.GEMINI_API_KEY;
+    
+    if (!apiKey) {
+      console.warn('⚠️ GEMINI_API_KEY not found in environment variables. AI features will be disabled.');
+      return false;
+    }
 
-    const prompt = `
-You are an AI project management assistant analyzing team communications.
+    genAI = new GoogleGenerativeAI(apiKey);
+    model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    
+    console.log('✅ Gemini AI initialized successfully (model: gemini-2.5-flash)');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to initialize Gemini AI:', error.message);
+    return false;
+  }
+};
 
-Project: ${projectInfo.title}
-Description: ${projectInfo.description}
-Status: ${projectInfo.status}
-Deadline: ${projectInfo.deadline}
+// Initialize on module load
+initializeGemini();
 
-Recent Chat Messages:
-${chatContext}
+/**
+ * Check if AI service is available
+ */
+const isAIAvailable = () => {
+  return genAI !== null && model !== null;
+};
 
-Based on the chat history, provide a JSON response with:
-1. topics: Array of 3-5 key discussion topics
-2. blockers: Array of identified blockers or concerns
-3. nextSteps: Array of suggested next steps or action items
-4. insights: String with team collaboration insights
+/**
+ * Generate cache key from parameters
+ */
+const generateCacheKey = (functionName, params) => {
+  return `${functionName}_${JSON.stringify(params)}`;
+};
 
-Return only valid JSON, no markdown or additional text.
-`;
+/**
+ * Log API usage
+ */
+const logAPIUsage = (functionName, tokensUsed = 0, cached = false) => {
+  if (!cached) {
+    apiCallCount++;
+    totalTokensUsed += tokensUsed;
+  }
+  
+  console.log(`📊 AI Usage - Function: ${functionName}, Cached: ${cached}, Total Calls: ${apiCallCount}, Total Tokens: ${totalTokensUsed}`);
+};
+
+/**
+ * Get API usage statistics
+ */
+export const getAPIStats = () => {
+  return {
+    totalCalls: apiCallCount,
+    totalTokens: totalTokensUsed,
+    estimatedCost: (totalTokensUsed / 1000000) * 0.075, // Gemini 2.0 Flash pricing
+    cacheStats: cache.getStats(),
+  };
+};
+
+/**
+ * Clear cache
+ */
+export const clearCache = () => {
+  cache.flushAll();
+  console.log('🗑️ AI cache cleared');
+};
+
+/**
+ * Analyze chat messages to extract key topics and suggest next steps
+ * @param {Array} messages - Array of message objects
+ * @param {String} projectType - Type of project (web, mobile, data, etc.)
+ * @returns {Object} Analysis with topics and suggestions
+ */
+export const analyzeChatMessages = async (messages, projectType = 'general') => {
+  const functionName = 'analyzeChatMessages';
+  
+  try {
+    // Check if AI is available
+    if (!isAIAvailable()) {
+      throw new Error('AI service not available. Please check GEMINI_API_KEY.');
+    }
+
+    // Validate input
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      throw new Error('Invalid messages array provided');
+    }
+
+    // Generate cache key
+    const cacheKey = generateCacheKey(functionName, { 
+      messageCount: messages.length,
+      lastMessageId: messages[messages.length - 1]._id 
+    });
+
+    // Check cache
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      logAPIUsage(functionName, 0, true);
+      return cached;
+    }
+
+    // Prepare messages for analysis (limit to last 50 to save tokens)
+    const recentMessages = messages.slice(-50).map(msg => ({
+      sender: msg.sender?.name || 'Unknown',
+      text: msg.text,
+      timestamp: msg.createdAt
+    }));
+
+    const prompt = `You are an AI assistant analyzing project chat messages for a ${projectType} project.
+
+Chat Messages:
+${JSON.stringify(recentMessages, null, 2)}
+
+Please analyze these messages and provide:
+1. **Key Topics**: List the main discussion topics (max 5)
+2. **Action Items**: Extract any tasks or action items mentioned
+3. **Next Steps**: Suggest 3-5 logical next steps based on the conversation
+4. **Blockers**: Identify any mentioned blockers or issues
+5. **Decisions Made**: List any decisions that were made
+
+Format your response as a JSON object with these keys: topics, actionItems, nextSteps, blockers, decisions
+
+Respond ONLY with valid JSON, no additional text.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
-    
-    // Clean response and parse JSON
-    const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const analysis = JSON.parse(jsonText);
 
-    return {
-      success: true,
-      analysis: analysis,
-      tokensUsed: text.length // Approximate token count
-    };
+    // Parse JSON response
+    let analysis;
+    try {
+      // Remove markdown code blocks if present
+      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      analysis = JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', text);
+      throw new Error('Failed to parse AI response as JSON');
+    }
 
+    // Calculate tokens used (approximate)
+    const tokensUsed = Math.ceil((prompt.length + text.length) / 4);
+    logAPIUsage(functionName, tokensUsed, false);
+
+    // Cache the result
+    cache.set(cacheKey, analysis);
+
+    return analysis;
   } catch (error) {
-    console.error('Chat analysis error:', error);
-    return {
-      success: false,
-      error: error.message,
-      fallback: {
-        topics: ['Unable to analyze at this time'],
-        blockers: [],
-        nextSteps: ['Continue project work as planned'],
-        insights: 'AI analysis temporarily unavailable'
+    console.error(`❌ Error in ${functionName}:`, error.message);
+    throw new Error(`AI Analysis failed: ${error.message}`);
+  }
+};
+
+/**
+ * Generate realistic deadline suggestion for a task
+ * @param {Object} taskData - Task information (title, description, priority, etc.)
+ * @param {Array} chatHistory - Recent chat messages for context
+ * @returns {Object} Deadline suggestion with reasoning
+ */
+export const generateDeadlineSuggestion = async (taskData, chatHistory = []) => {
+  const functionName = 'generateDeadlineSuggestion';
+  
+  try {
+    if (!isAIAvailable()) {
+      throw new Error('AI service not available. Please check GEMINI_API_KEY.');
+    }
+
+    if (!taskData || !taskData.title) {
+      throw new Error('Invalid task data provided');
+    }
+
+    // Generate cache key
+    const cacheKey = generateCacheKey(functionName, {
+      taskTitle: taskData.title,
+      priority: taskData.priority
+    });
+
+    // Check cache
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      logAPIUsage(functionName, 0, true);
+      return cached;
+    }
+
+    // Prepare context
+    const recentChat = chatHistory.slice(-20).map(msg => msg.text).join('\n');
+    
+    const prompt = `You are a project management AI assistant. Suggest a realistic deadline for the following task.
+
+Task Details:
+- Title: ${taskData.title}
+- Description: ${taskData.description || 'No description'}
+- Priority: ${taskData.priority || 'medium'}
+- Assigned To: ${taskData.assignedTo?.name || 'Unassigned'}
+- Current Workload: ${taskData.currentWorkload || 'Unknown'}
+
+Recent Team Discussion:
+${recentChat || 'No recent chat history'}
+
+Current Date: ${new Date().toISOString()}
+
+Provide:
+1. **Suggested Deadline**: A specific date (YYYY-MM-DD format)
+2. **Duration**: Estimated days needed
+3. **Reasoning**: Why this deadline makes sense (2-3 sentences)
+4. **Risk Factors**: Any potential delays to consider
+5. **Confidence**: Low, Medium, or High confidence in this estimate
+
+Respond ONLY with valid JSON in this format:
+{
+  "suggestedDeadline": "YYYY-MM-DD",
+  "durationDays": number,
+  "reasoning": "string",
+  "riskFactors": ["string"],
+  "confidence": "Low|Medium|High"
+}`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    let suggestion;
+    try {
+      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      suggestion = JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', text);
+      throw new Error('Failed to parse AI response as JSON');
+    }
+
+    const tokensUsed = Math.ceil((prompt.length + text.length) / 4);
+    logAPIUsage(functionName, tokensUsed, false);
+
+    cache.set(cacheKey, suggestion);
+
+    return suggestion;
+  } catch (error) {
+    console.error(`❌ Error in ${functionName}:`, error.message);
+    throw new Error(`Deadline suggestion failed: ${error.message}`);
+  }
+};
+
+/**
+ * Analyze member participation in chat
+ * @param {Array} messages - Array of message objects with sender info
+ * @returns {Object} Member analytics with activity scores
+ */
+export const analyzeMemberParticipation = async (messages) => {
+  const functionName = 'analyzeMemberParticipation';
+  
+  try {
+    if (!isAIAvailable()) {
+      throw new Error('AI service not available. Please check GEMINI_API_KEY.');
+    }
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      throw new Error('Invalid messages array provided');
+    }
+
+    // Generate cache key
+    const cacheKey = generateCacheKey(functionName, {
+      messageCount: messages.length,
+      timeRange: `${messages[0]?.createdAt}_${messages[messages.length - 1]?.createdAt}`
+    });
+
+    // Check cache
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      logAPIUsage(functionName, 0, true);
+      return cached;
+    }
+
+    // Calculate basic stats
+    const memberStats = {};
+    messages.forEach(msg => {
+      const senderId = msg.sender?.id || msg.sender?._id;
+      const senderName = msg.sender?.name || 'Unknown';
+      
+      if (!memberStats[senderId]) {
+        memberStats[senderId] = {
+          id: senderId,
+          name: senderName,
+          messageCount: 0,
+          totalWords: 0,
+          firstMessage: msg.createdAt,
+          lastMessage: msg.createdAt,
+          reactions: 0
+        };
       }
-    };
+      
+      memberStats[senderId].messageCount++;
+      memberStats[senderId].totalWords += (msg.text?.split(' ').length || 0);
+      memberStats[senderId].lastMessage = msg.createdAt;
+      memberStats[senderId].reactions += (msg.reactions?.length || 0);
+    });
+
+    // Convert to array
+    const membersArray = Object.values(memberStats);
+
+    const prompt = `You are an AI analyzing team member participation in a project chat.
+
+Member Statistics:
+${JSON.stringify(membersArray, null, 2)}
+
+Total Messages: ${messages.length}
+Time Period: ${messages[0]?.createdAt} to ${messages[messages.length - 1]?.createdAt}
+
+Analyze the participation and provide:
+1. **Activity Scores**: Rate each member's activity (0-100 scale)
+2. **Inactive Members**: List members who are below average participation
+3. **Top Contributors**: Top 3 most active members
+4. **Engagement Quality**: Assess if conversations are balanced
+5. **Recommendations**: Suggest how to improve team engagement
+
+Respond ONLY with valid JSON:
+{
+  "memberScores": [{ "id": "string", "name": "string", "score": number, "level": "High|Medium|Low" }],
+  "inactiveMembers": [{ "id": "string", "name": "string", "reason": "string" }],
+  "topContributors": ["name1", "name2", "name3"],
+  "engagementQuality": "string",
+  "recommendations": ["string"]
+}`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    let analytics;
+    try {
+      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      analytics = JSON.parse(cleanedText);
+      
+      // Add raw stats to response
+      analytics.rawStats = membersArray;
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', text);
+      throw new Error('Failed to parse AI response as JSON');
+    }
+
+    const tokensUsed = Math.ceil((prompt.length + text.length) / 4);
+    logAPIUsage(functionName, tokensUsed, false);
+
+    cache.set(cacheKey, analytics);
+
+    return analytics;
+  } catch (error) {
+    console.error(`❌ Error in ${functionName}:`, error.message);
+    throw new Error(`Member participation analysis failed: ${error.message}`);
+  }
+};
+
+/**
+ * Generate a comprehensive project summary
+ * @param {Object} projectData - Project information
+ * @param {Array} messages - Chat messages
+ * @returns {Object} Project summary with highlights
+ */
+export const generateProjectSummary = async (projectData, messages = []) => {
+  const functionName = 'generateProjectSummary';
+  
+  try {
+    if (!isAIAvailable()) {
+      throw new Error('AI service not available. Please check GEMINI_API_KEY.');
+    }
+
+    if (!projectData || !projectData.name) {
+      throw new Error('Invalid project data provided');
+    }
+
+    // Generate cache key
+    const cacheKey = generateCacheKey(functionName, {
+      projectId: projectData._id,
+      lastUpdate: projectData.updatedAt || new Date().toISOString()
+    });
+
+    // Check cache
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      logAPIUsage(functionName, 0, true);
+      return cached;
+    }
+
+    // Prepare chat context
+    const recentMessages = messages.slice(-30).map(msg => ({
+      sender: msg.sender?.name || 'Unknown',
+      text: msg.text,
+      timestamp: msg.createdAt
+    }));
+
+    const prompt = `You are an AI assistant creating a project summary.
+
+Project Information:
+- Name: ${projectData.name}
+- Description: ${projectData.description || 'No description'}
+- Status: ${projectData.status || 'Unknown'}
+- Priority: ${projectData.priority || 'Unknown'}
+- Start Date: ${projectData.startDate || 'Not set'}
+- Deadline: ${projectData.deadline || 'Not set'}
+- Owner: ${projectData.owner?.name || 'Unknown'}
+- Members: ${projectData.memberCount || projectData.members?.length || 0}
+- Tasks: Total ${projectData.taskStats?.total || 0}, Completed ${projectData.taskStats?.completed || 0}
+
+Recent Team Communication:
+${JSON.stringify(recentMessages, null, 2)}
+
+Create a comprehensive summary including:
+1. **Executive Summary**: 2-3 sentence overview
+2. **Key Decisions**: Important decisions made (list)
+3. **Completed Items**: What has been accomplished (list)
+4. **In Progress**: Current work items (list)
+5. **Upcoming Milestones**: What's next (list)
+6. **Risks & Concerns**: Any issues identified (list)
+7. **Team Sentiment**: Overall team morale assessment
+
+Respond ONLY with valid JSON:
+{
+  "executiveSummary": "string",
+  "keyDecisions": ["string"],
+  "completedItems": ["string"],
+  "inProgress": ["string"],
+  "upcomingMilestones": ["string"],
+  "risksAndConcerns": ["string"],
+  "teamSentiment": "Positive|Neutral|Concerned",
+  "generatedAt": "${new Date().toISOString()}"
+}`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    let summary;
+    try {
+      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      summary = JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', text);
+      throw new Error('Failed to parse AI response as JSON');
+    }
+
+    const tokensUsed = Math.ceil((prompt.length + text.length) / 4);
+    logAPIUsage(functionName, tokensUsed, false);
+
+    cache.set(cacheKey, summary);
+
+    return summary;
+  } catch (error) {
+    console.error(`❌ Error in ${functionName}:`, error.message);
+    throw new Error(`Project summary generation failed: ${error.message}`);
+  }
+};
+
+/**
+ * Test function to verify AI service is working
+ */
+export const testAIService = async () => {
+  try {
+    if (!isAIAvailable()) {
+      throw new Error('AI service not available');
+    }
+
+    const result = await model.generateContent('Respond with "Hello, AI is working!" and nothing else.');
+    const response = await result.response;
+    const text = response.text();
+
+    console.log('✅ AI Test Response:', text);
+    return { success: true, message: text };
+  } catch (error) {
+    console.error('❌ AI Test Failed:', error.message);
+    return { success: false, error: error.message };
   }
 };
 
@@ -468,10 +890,22 @@ export const generateReminders = async (project, tasks) => {
 };
 
 export default {
+  // New functions with enhanced features
   analyzeChatMessages,
+  generateDeadlineSuggestion,
+  analyzeMemberParticipation,
+  generateProjectSummary,
+  testAIService,
+  
+  // Existing functions
   detectProjectRisks,
   analyzeParticipation,
   generateSuggestions,
   predictCompletion,
-  generateReminders
+  generateReminders,
+  
+  // Utility functions
+  getAPIStats,
+  clearCache,
+  isAIAvailable
 };

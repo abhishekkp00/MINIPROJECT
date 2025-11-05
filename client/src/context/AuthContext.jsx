@@ -19,8 +19,10 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  // API base URL
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  // API base URL - Use proxy in development for better CORS handling
+  const API_URL = import.meta.env.MODE === 'development' 
+    ? '/api'  // Use Vite proxy in development
+    : import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   // Configure axios defaults
   useEffect(() => {

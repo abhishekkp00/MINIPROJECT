@@ -15,10 +15,20 @@ import { Server } from 'socket.io';
 import connectDB from './config/db.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import authRoutes from './routes/auth.js';
+import projectRoutes from './routes/projects.js';
+import taskRoutes from './routes/tasks.js';
+import chatRoutes from './routes/chat.js';
+import aiRoutes from './routes/ai.js';
 
 // Import models to register them with Mongoose
 import './models/User.js';
 import './models/Project.js';
+import './models/Task.js';
+import './models/Chat.js';
+import './models/Message.js';
+
+// Import Socket.IO handler
+import socketHandler from './socket/socketHandler.js';
 
 // Load environment variables
 dotenv.config();
@@ -27,11 +37,29 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
-// Initialize Socket.IO
+// Initialize Socket.IO with enhanced configuration
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    credentials: true
+    origin: process.env.CLIENT_URL || ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE']
+  },
+  // Connection settings
+  pingTimeout: 60000, // 60 seconds
+  pingInterval: 25000, // 25 seconds
+  connectTimeout: 45000, // 45 seconds
+  // Max HTTP buffer size for large file uploads
+  maxHttpBufferSize: 1e8, // 100MB
+  // Allow upgrades from long-polling to WebSocket
+  allowUpgrades: true,
+  // Transport methods
+  transports: ['websocket', 'polling'],
+  // Cookie settings
+  cookie: {
+    name: 'io',
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax'
   }
 });
 
@@ -50,8 +78,10 @@ app.use(helmet());
 const corsOptions = {
   origin: process.env.ALLOWED_ORIGINS 
     ? process.env.ALLOWED_ORIGINS.split(',')
-    : ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true
+    : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
 app.use(cors(corsOptions));
 
@@ -84,47 +114,30 @@ app.get('/api/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
-// app.use('/api/projects', projectRoutes);
-// app.use('/api/tasks', taskRoutes);
-// app.use('/api/chat', chatRoutes);
-// app.use('/api/ai', aiRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/ai', aiRoutes);
 
 // ==================== SOCKET.IO ====================
 
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  console.log('📡 New client connected:', socket.id);
-
-  // Join project room
-  socket.on('join-project', (projectId) => {
-    socket.join(`project-${projectId}`);
-    console.log(`User ${socket.id} joined project-${projectId}`);
-  });
-
-  // Leave project room
-  socket.on('leave-project', (projectId) => {
-    socket.leave(`project-${projectId}`);
-    console.log(`User ${socket.id} left project-${projectId}`);
-  });
-
-  // Handle chat messages
-  socket.on('send-message', (data) => {
-    io.to(`project-${data.projectId}`).emit('new-message', data);
-  });
-
-  // Handle typing indicator
-  socket.on('typing', (data) => {
-    socket.to(`project-${data.projectId}`).emit('user-typing', {
-      userId: data.userId,
-      userName: data.userName
-    });
-  });
-
-  // Handle disconnect
-  socket.on('disconnect', () => {
-    console.log('📡 Client disconnected:', socket.id);
+// Socket.IO connection monitoring
+io.engine.on('connection_error', (err) => {
+  console.error('🔴 Socket.IO Connection Error:', {
+    message: err.message,
+    code: err.code,
+    type: err.type
   });
 });
+
+// Initialize Socket.IO handler with authentication and full features
+socketHandler(io);
+
+console.log('🔌 Socket.IO initialized with the following:');
+console.log('   - Authentication: JWT required');
+console.log('   - Transports: WebSocket, Polling');
+console.log('   - Ping Timeout: 60s');
+console.log('   - Max Buffer: 100MB');
 
 // ==================== ERROR HANDLING ====================
 

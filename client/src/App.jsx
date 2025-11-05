@@ -8,11 +8,8 @@ import { useEffect } from 'react';
 import LoginPage from './pages/LoginPage';
 import ProtectedRoute from './components/Common/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
-
-// Import pages (we'll create these next)
-// import Home from './pages/Home';
-// import Signup from './pages/Signup';
-// import AdminPanel from './pages/AdminPanel';
+import ProjectDetails from './pages/ProjectDetails';
+import ConnectionTest from './pages/ConnectionTest';
 
 function App() {
   useEffect(() => {
@@ -27,10 +24,11 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
-        {/* <Route path="/signup" element={<Signup />} /> */}
+        <Route path="/test-connection" element={<ConnectionTest />} />
         
         {/* Protected Routes - Require Authentication */}
         <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
+        <Route path="/projects/:projectId" element={<ProtectedRoute element={<ProjectDetails />} />} />
         
         {/* Protected Routes with Role Requirements */}
         {/* <Route 
@@ -75,7 +73,7 @@ const NotFound = () => {
           Page Not Found
         </h2>
         <p className="text-xl text-gray-300 mb-8">
-          The page you're looking for doesn't exist.
+          The page you&apos;re looking for doesn&apos;t exist.
         </p>
         <button
           onClick={() => window.location.href = '/'}
